@@ -12,6 +12,53 @@ groupshared uint sIndexOffset;
 groupshared uint sIndexCount;
 groupshared uint sChunkIndex;
 
+groupshared int VoxelTriangles[] =
+{
+    0, 3, 1, 2,
+    5, 6, 4, 7,
+    3, 7, 2, 6,
+    1, 5, 0, 4,
+    4, 7, 0, 3,
+    1, 2, 5, 6
+};
+
+groupshared int2 UVs[] =
+{
+    int2(0, 0),
+    int2(0, 1),
+    int2(1, 0),
+    int2(1, 1)
+};
+
+groupshared int3 Normals[] =
+{
+    int3(0, 0, -1),
+    int3(0, 0, 1),
+    int3(0, 1, 0),
+    int3(0, -1, 0),
+    int3(-1, 0, 0),
+    int3(1, 0, 0)
+};
+
+groupshared int3 Vertices[] =
+{
+    int3(0, 0, 0),
+    int3(1, 0, 0),
+    int3(1, 1, 0),
+    int3(0, 1, 0),
+    int3(0, 0, 1),
+    int3(1, 0, 1),
+    int3(1, 1, 1),
+    int3(0, 1, 1)
+};
+
+void getFaceVerticies(int faceIndex, int3 pos, out int3 verticies[4])
+{
+    for (int i = 0; i < 4; i++) {
+        verticies[i] = Vertices[VoxelTriangles[faceIndex * 4 + i]] + pos;
+    }
+} 
+
 bool hasVoxel(int3 coord) {
     if (coord.x < 0 || coord.x >= CHUNK_SIZE || 
         coord.y < 0 || coord.y >= CHUNK_SIZE ||
@@ -47,122 +94,33 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
     if (uVoxels[globalVoxelIndex] > 0)
     {
         int3 coord = int3(dispatchID);
-        float3 position = float3(coord);
+        int3 position = int3(coord);
 
-        uint vertexOffset = 0, indexOffset = 0;
+        uint vertexOffset = 0, indexOffset = 0;        
+        
+        for (int i = 0; i < 6; i++) 
+        {
+            if (!hasVoxel(coord + Normals[i]))
+            {
+                InterlockedAdd(sVertexOffset, 4, vertexOffset);
+                InterlockedAdd(sIndexOffset, 6, indexOffset);
+            
+                int3 verts[4];
+                getFaceVerticies(i, position, verts);
+            
+                setVertex(uVertices[vertexOffset + 0], verts[0], UVs[0], Normals[i]);
+                setVertex(uVertices[vertexOffset + 1], verts[1], UVs[1], Normals[i]);
+                setVertex(uVertices[vertexOffset + 2], verts[2], UVs[2], Normals[i]);
+                setVertex(uVertices[vertexOffset + 3], verts[3], UVs[3], Normals[i]);
+            
+                uIndices[indexOffset + 0] = vertexOffset;
+                uIndices[indexOffset + 1] = vertexOffset + 1;
+                uIndices[indexOffset + 2] = vertexOffset + 2;
 
-        // +X
-        if (!hasVoxel(coord + int3(1, 0, 0))) {
-            InterlockedAdd(sVertexOffset, 4, vertexOffset);
-            InterlockedAdd(sIndexOffset, 6, indexOffset);
-
-            setVertex(uVertices[vertexOffset + 0], position + float3(0.5, 0.5, 0.5), float2(0.0, 0.0), float3(1.0, 0.0, 0.0));
-            setVertex(uVertices[vertexOffset + 1], position + float3(0.5, -0.5, 0.5), float2(0.0, 1.0), float3(1.0, 0.0, 0.0));
-            setVertex(uVertices[vertexOffset + 2], position + float3(0.5, -0.5, -0.5), float2(1.0, 1.0), float3(1.0, 0.0, 0.0));
-            setVertex(uVertices[vertexOffset + 3], position + float3(0.5, 0.5, -0.5), float2(1.0, 0.0), float3(1.0, 0.0, 0.0));
-
-            uIndices[indexOffset + 0] = vertexOffset;
-            uIndices[indexOffset + 1] = vertexOffset + 1;
-            uIndices[indexOffset + 2] = vertexOffset + 2;
-
-            uIndices[indexOffset + 3] = vertexOffset + 2;
-            uIndices[indexOffset + 4] = vertexOffset + 3;
-            uIndices[indexOffset + 5] = vertexOffset;
-        }
-
-        // -X
-        if (!hasVoxel(coord + int3(-1, 0, 0))) {
-            InterlockedAdd(sVertexOffset, 4, vertexOffset);
-            InterlockedAdd(sIndexOffset, 6, indexOffset);
-
-            setVertex(uVertices[vertexOffset + 0], position + float3(-0.5, 0.5, -0.5), float2(0.0, 0.0), float3(-1.0, 0.0, 0.0));
-            setVertex(uVertices[vertexOffset + 1], position + float3(-0.5, -0.5, -0.5), float2(0.0, 1.0), float3(-1.0, 0.0, 0.0));
-            setVertex(uVertices[vertexOffset + 2], position + float3(-0.5, -0.5, 0.5), float2(1.0, 1.0), float3(-1.0, 0.0, 0.0));
-            setVertex(uVertices[vertexOffset + 3], position + float3(-0.5, 0.5, 0.5), float2(1.0, 0.0), float3(-1.0, 0.0, 0.0));
-
-            uIndices[indexOffset + 0] = vertexOffset;
-            uIndices[indexOffset + 1] = vertexOffset + 1;
-            uIndices[indexOffset + 2] = vertexOffset + 2;
-
-            uIndices[indexOffset + 3] = vertexOffset + 2;
-            uIndices[indexOffset + 4] = vertexOffset + 3;
-            uIndices[indexOffset + 5] = vertexOffset;
-        }
-
-        // +Y
-        if (!hasVoxel(coord + int3(0, 1, 0))) {
-            InterlockedAdd(sVertexOffset, 4, vertexOffset);
-            InterlockedAdd(sIndexOffset, 6, indexOffset);
-
-            setVertex(uVertices[vertexOffset + 0], position + float3(-0.5, 0.5, -0.5), float2(0.0, 0.0), float3(0.0, 1.0, 0.0));
-            setVertex(uVertices[vertexOffset + 1], position + float3(-0.5, 0.5, 0.5), float2(0.0, 1.0), float3(0.0, 1.0, 0.0));
-            setVertex(uVertices[vertexOffset + 2], position + float3(0.5, 0.5, 0.5), float2(1.0, 1.0), float3(0.0, 1.0, 0.0));
-            setVertex(uVertices[vertexOffset + 3], position + float3(0.5, 0.5, -0.5), float2(1.0, 0.0), float3(0.0, 1.0, 0.0));
-
-            uIndices[indexOffset + 0] = vertexOffset;
-            uIndices[indexOffset + 1] = vertexOffset + 1;
-            uIndices[indexOffset + 2] = vertexOffset + 2;
-
-            uIndices[indexOffset + 3] = vertexOffset + 2;
-            uIndices[indexOffset + 4] = vertexOffset + 3;
-            uIndices[indexOffset + 5] = vertexOffset;
-        }
-
-        // -Y
-        if (!hasVoxel(coord + int3(0, -1, 0))) {
-            InterlockedAdd(sVertexOffset, 4, vertexOffset);
-            InterlockedAdd(sIndexOffset, 6, indexOffset);
-
-            setVertex(uVertices[vertexOffset + 0], position + float3(-0.5, -0.5, 0.5), float2(0.0, 0.0), float3(0.0, -1.0, 0.0));
-            setVertex(uVertices[vertexOffset + 1], position + float3(-0.5, -0.5, -0.5), float2(0.0, 1.0), float3(0.0, -1.0, 0.0));
-            setVertex(uVertices[vertexOffset + 2], position + float3(0.5, -0.5, -0.5), float2(1.0, 1.0), float3(0.0, -1.0, 0.0));
-            setVertex(uVertices[vertexOffset + 3], position + float3(0.5, -0.5, 0.5), float2(1.0, 0.0), float3(0.0, -1.0, 0.0));
-
-            uIndices[indexOffset + 0] = vertexOffset;
-            uIndices[indexOffset + 1] = vertexOffset + 1;
-            uIndices[indexOffset + 2] = vertexOffset + 2;
-
-            uIndices[indexOffset + 3] = vertexOffset + 2;
-            uIndices[indexOffset + 4] = vertexOffset + 3;
-            uIndices[indexOffset + 5] = vertexOffset;
-        }
-
-        // +Z
-        if (!hasVoxel(coord + int3(0, 0, 1))) {
-            InterlockedAdd(sVertexOffset, 4, vertexOffset);
-            InterlockedAdd(sIndexOffset, 6, indexOffset);
-
-            setVertex(uVertices[vertexOffset + 0], position + float3(-0.5, 0.5, 0.5), float2(0.0, 0.0), float3(0.0, 0.0, 1.0));
-            setVertex(uVertices[vertexOffset + 1], position + float3(-0.5, -0.5, 0.5), float2(0.0, 1.0), float3(0.0, 0.0, 1.0));
-            setVertex(uVertices[vertexOffset + 2], position + float3(0.5, -0.5, 0.5), float2(1.0, 1.0), float3(0.0, 0.0, 1.0));
-            setVertex(uVertices[vertexOffset + 3], position + float3(0.5, 0.5, 0.5), float2(1.0, 0.0), float3(0.0, 0.0, 1.0));
-
-            uIndices[indexOffset + 0] = vertexOffset;
-            uIndices[indexOffset + 1] = vertexOffset + 1;
-            uIndices[indexOffset + 2] = vertexOffset + 2;
-
-            uIndices[indexOffset + 3] = vertexOffset + 2;
-            uIndices[indexOffset + 4] = vertexOffset + 3;
-            uIndices[indexOffset + 5] = vertexOffset;
-        }
-
-        // -Z
-        if (!hasVoxel(coord + int3(0, 0, -1))) {
-            InterlockedAdd(sVertexOffset, 4, vertexOffset);
-            InterlockedAdd(sIndexOffset, 6, indexOffset);
-
-            setVertex(uVertices[vertexOffset + 0], position + float3(0.5, 0.5, -0.5), float2(0.0, 0.0), float3(0.0, 0.0, -1.0));
-            setVertex(uVertices[vertexOffset + 1], position + float3(0.5, -0.5, -0.5), float2(0.0, 1.0), float3(0.0, 0.0, -1.0));
-            setVertex(uVertices[vertexOffset + 2], position + float3(-0.5, -0.5, -0.5), float2(1.0, 1.0), float3(0.0, 0.0, -1.0));
-            setVertex(uVertices[vertexOffset + 3], position + float3(-0.5, 0.5, -0.5), float2(1.0, 0.0), float3(0.0, 0.0, -1.0));
-
-            uIndices[indexOffset + 0] = vertexOffset;
-            uIndices[indexOffset + 1] = vertexOffset + 1;
-            uIndices[indexOffset + 2] = vertexOffset + 2;
-
-            uIndices[indexOffset + 3] = vertexOffset + 2;
-            uIndices[indexOffset + 4] = vertexOffset + 3;
-            uIndices[indexOffset + 5] = vertexOffset;
-        }
+                uIndices[indexOffset + 3] = vertexOffset + 2;
+                uIndices[indexOffset + 4] = vertexOffset + 1;
+                uIndices[indexOffset + 5] = vertexOffset + 3;
+            }           
+        }        
     }
 }
