@@ -1,26 +1,29 @@
-# GPU voxel mesh generation and drawing in Unity HDRP
+# GPU Voxel Mesh Generation and Drawing in Unity HDRP
 
-This is an experiment to generate a cubic voxel chunk mesh as efficiently as possible. This is insanely fast, meshing and drawing at around <b>650</b> FPS on my RTX 4090. The mesh generation itself is much faster than that, running at more than <b>1000</b> FPS with camera disabled.
+This project focuses on efficiently generating a cubic voxel chunk mesh using GPU. The meshing and drawing operations achieve a high performance, running at approximately 650 FPS on an RTX 4090. The mesh generation itself is even faster, exceeding 1000 FPS when the camera is disabled.
 
-https://user-images.githubusercontent.com/14143603/231909731-d0047d10-7ccd-440d-8c25-6b64d07315ad.mp4
+On HDRP with RTX 270 its around 300fps +- 20fps<br>
+On URP with RTX 2070 its around 500fps +- 75fps,
 
-This example uses a 3D noise library to generate voxel data. You can control frequency, amplitude, offset and speed of the noise via inspector in Unity.
+[Watch the Mesh Generation in Action!](https://user-images.githubusercontent.com/14143603/231909731-d0047d10-7ccd-440d-8c25-6b64d07315ad.mp4)
 
-## What you can learn from it
+### Overview
+This example utilizes a 3D noise library to generate voxel data. Users can adjust parameters like frequency, amplitude, offset, and speed of the noise through the Unity inspector.
 
-- How to create a mesh on gpu
-- How to use shader graph with a custom function to draw a mesh using Graphics.DrawProceduralIndirect. This was only recently made possible when Unity added VertexId node to shader graph.
+### Key Learning Points
+- Creating a mesh on the GPU
+- Utilizing Shader Graph with a custom function to draw a mesh using Graphics.DrawProceduralIndirect or Graphics.RenderPrimitivesIndirect. This functionality became achievable with Unity's recent addition of the VertexId node to Shader Graph.
 
-## How it works
+### Workflow
+1. **Generate Voxels Compute:** Generates voxel data (0/1) using 3D noise.
+2. **Feedback Compute:** Iterates all voxels to calculate the count of vertices and indices required for the mesh.
+3. **Voxelizer Compute:** Iterates all voxels to write vertex and index data into the buffers.
+4. **Drawing the Mesh:** Utilizes Graphics.DrawProceduralIndirect or Graphics.RenderPrimitivesIndirect with data from index and vertex buffers.
 
-- generate voxels compute -> voxel data (0/1) is generated using 3d noise
-- feedback compute -> iterates all voxels and calculates the count of vertices and indices which will be required for the mesh
-- voxelizer compute -> iterates all voxels and writes vertex and index data into the buffers
-- the mesh is drawn with Graphics.DrawProceduralIndirect using data from index and vertex buffers
+The mesh is exclusively generated on the GPU and avoids CPU readback to create a Mesh object, which would be significantly slower (5 FPS).
+### Warnings
+UVs would require to write custom shader (not in Shader Graph) as Shader Graph don't allow to use Vertex ID node with fragment node, or some magic workaround to somehow use vertex id to get UVs.
 
-The mesh is generated on the GPU and is never read back to the CPU to create a Mesh object, that would be very slow by comparison (5 FPS).
-
-## Credits
-
-- [OpenGL voxelizer compute shaders by Demurzasty](https://github.com/demurzasty/HolyGrail)
+### Credits
+- [OpenGL Voxelizer Compute Shaders by Demurzasty](https://github.com/demurzasty/HolyGrail)
 - [GPU Noise by keijiro](https://github.com/keijiro/NoiseShader)
