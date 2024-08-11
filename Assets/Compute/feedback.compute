@@ -9,6 +9,16 @@ RWStructuredBuffer<ChunkFeedback> uChunkFeedback;
 groupshared uint sVertexCount;
 groupshared uint sIndexCount;
 
+groupshared int3 Normals[] =
+{
+    int3(0, 0, -1),
+    int3(0, 0, 1),
+    int3(0, 1, 0),
+    int3(0, -1, 0),
+    int3(-1, 0, 0),
+    int3(1, 0, 0)
+};
+
 bool hasVoxel(int3 coord) {
     if (coord.x < 0 || coord.x >= CHUNK_SIZE || 
         coord.y < 0 || coord.y >= CHUNK_SIZE ||
@@ -38,34 +48,14 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
         uint vertexCount = 0;
         uint indexCount = 0;
 
-        if (!hasVoxel(coord + int3(1, 0, 0))) {
-            vertexCount += 4;
-            indexCount += 6;
-        }
-
-        if (!hasVoxel(coord + int3(-1, 0, 0))) {
-            vertexCount += 4;
-            indexCount += 6;
-        }
-
-        if (!hasVoxel(coord + int3(0, 1, 0))) {
-            vertexCount += 4;
-            indexCount += 6;
-        }
-
-        if (!hasVoxel(coord + int3(0, -1, 0))) {
-            vertexCount += 4;
-            indexCount += 6;
-        }
-
-        if (!hasVoxel(coord + int3(0, 0, 1))) {
-            vertexCount += 4;
-            indexCount += 6;
-        }
-
-        if (!hasVoxel(coord + int3(0, 0, -1))) {
-            vertexCount += 4;
-            indexCount += 6;
+        for (int i = 0; i < 6; i++)
+        {
+            int3 neighborCoord = coord + Normals[i];
+            if (!hasVoxel(neighborCoord)) 
+            {
+                vertexCount += 4;
+                indexCount += 6;
+            }
         }
         
         InterlockedAdd(sVertexCount, vertexCount);
