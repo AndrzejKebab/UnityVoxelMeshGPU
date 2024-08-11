@@ -1560,7 +1560,7 @@ Transform:
   m_GameObject: {fileID: 1823688464}
   serializedVersion: 2
   m_LocalRotation: {x: 0.31598538, y: -0.3596048, z: 0.13088542, w: 0.8681629}
-  m_LocalPosition: {x: 10, y: 10, z: -40}
+  m_LocalPosition: {x: 110, y: 110, z: -40}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1700,7 +1700,7 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
+  m_VertexColorAlwaysGammaSpace: 1
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -1755,18 +1755,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9fb7a8e7188dde4c9ddcaf0ba5f9eeb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  RenderingMode: 0
-  dropdown: {fileID: 667510487}
-  frequency: 0.1
-  amplitude: 1
-  position: {x: 0, y: 0, z: 0}
-  movementSpeed: {x: 2.5, y: 2.5, z: 2.5}
+  Frequency: 0.1
+  Amplitude: 1
+  Position: {x: 0, y: 0, z: 0}
+  MovementSpeed: {x: 2.5, y: 2.5, z: 2.5}
   generateVoxelsComputeShader: {fileID: 7200000, guid: 7c81d6f263c142b0ab66023d5cb2aefa,
     type: 3}
   voxelizerComputeShader: {fileID: 7200000, guid: f1d02a3d7f264bc2a4f0b6abea7722c4,
     type: 3}
   feedbackComputeShader: {fileID: 7200000, guid: dcf5afbcdd664499ba15c19b51a26d36,
     type: 3}
+  RenderingMode: 0
+  RenderDropdown: {fileID: 667510487}
   drawMaterial: {fileID: 2100000, guid: 4f8827c503848cc4fa6848f453f1f190, type: 2}
 --- !u!4 &1951787752
 Transform:

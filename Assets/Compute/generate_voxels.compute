@@ -1,6 +1,6 @@
 ﻿#pragma kernel CSMain
 #include "voxels.hlsl"
-#include "Library\PackageCache\jp.keijiro.noiseshader@2.0.0/Shader/ClassicNoise3D.hlsl"
+#include "Library\PackageCache\jp.keijiro.noiseshader@2.0.0/Shader/SimplexNoise3D.hlsl"
 
 RWStructuredBuffer<int> uVoxels;
 
@@ -16,7 +16,7 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID)
     int3 coord = int3(dispatchID);
     float3 position = float3(coord) + uPosition;
 
-    float noise = ClassicNoise(position * uFrequency) * uAmplitude;
+    float noise = SimplexNoise(position * uFrequency) * uAmplitude;
 
     if (noise > 0)
     {

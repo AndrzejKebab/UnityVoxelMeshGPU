@@ -21,6 +21,7 @@ public class VoxelChunkGenerator : MonoBehaviour
 	#endregion
 
 	#region Noise Settings
+	[Header("Noise Settings")]
 	public float Frequency = 0.1f;
 	public float Amplitude = 1f;
 	public Vector3 Position;
@@ -28,6 +29,7 @@ public class VoxelChunkGenerator : MonoBehaviour
 	#endregion
 
 	#region Compute Shaders
+	[Header("Compute Shaders")]
 	public ComputeShader generateVoxelsComputeShader;
 	public ComputeShader voxelizerComputeShader;
 	public ComputeShader feedbackComputeShader;
@@ -58,6 +60,7 @@ public class VoxelChunkGenerator : MonoBehaviour
 	#endregion
 
 	#region Variables
+	[Header("Rendering Settings")]
 	public RenderMode RenderingMode = RenderMode.DrawProceduralIndirect;
 	public TMP_Dropdown RenderDropdown;
 	public Material drawMaterial;

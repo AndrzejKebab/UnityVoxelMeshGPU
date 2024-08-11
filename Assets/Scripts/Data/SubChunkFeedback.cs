@@ -1,6 +1,7 @@
 ﻿namespace Data
 {
-    public struct SubChunkFeedback {
+    public struct SubChunkFeedback 
+    {
         public uint vertexOffset;
         public uint vertexCount;
         public uint indexOffset;

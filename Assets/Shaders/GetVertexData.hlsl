@@ -1,4 +1,3 @@
-
 #ifndef VOXEL_MESH_INFO
 #define VOXEL_MESH_INFO
 
@@ -14,5 +13,4 @@ void GetVertexData_float(float vertexId, out float3 position, out float2 texcoor
     texcoord = Vertices[index].texcoord;
     normal = Vertices[index].normal;
 }
-
 #endif
