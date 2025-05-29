@@ -1,6 +1,6 @@
 ﻿#pragma kernel CSMain
 #include "voxels.hlsl"
-#include "Library\PackageCache\jp.keijiro.noiseshader@2.0.0/Shader/SimplexNoise3D.hlsl"
+#include "Library/PackageCache/jp.keijiro.noiseshader@2953cf10b931/Shader/SimplexNoise3D.hlsl"
 
 RWStructuredBuffer<int> uVoxels;
 
