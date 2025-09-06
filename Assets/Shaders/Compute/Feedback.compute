@@ -1,5 +1,5 @@
 ﻿#pragma kernel CSMain
-#include "voxels.hlsl"
+#include "Voxels.hlsl"
 
 RWStructuredBuffer<int> uVoxels;
 RWStructuredBuffer<uint> uIndirectArgs;

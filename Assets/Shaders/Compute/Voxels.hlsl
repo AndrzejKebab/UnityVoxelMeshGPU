@@ -1,9 +1,9 @@
 ﻿#define CHUNK_SIZE 80
 
 struct Vertex {
-    float3 position;
-    float2 texcoord;
-    float3 normal;
+    float3 position : POSITION;
+    float2 texcoord : TEXCOORD0;
+    float3 normal : NORMAL;
 };
 
 struct GeometryData {

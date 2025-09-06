@@ -1,7 +1,13 @@
+#ifndef UNITY_INDIRECT_DRAW_ARGS
+#define UNITY_INDIRECT_DRAW_ARGS IndirectDrawArgs
+#include "UnityIndirect.cginc"
+#endif
+
 #ifndef VOXEL_MESH_INFO
 #define VOXEL_MESH_INFO
+#define GETVERTEXDATA_HLSL
 
-#include <Assets/Compute/voxels.hlsl>
+#include <Assets/Shaders/Compute/Voxels.hlsl>
 
 StructuredBuffer<int> Indices;
 StructuredBuffer<Vertex> Vertices;
