@@ -1,9 +1,13 @@
-﻿#include <Assets/Shaders/RenderPrimitivesIndirectGraphNode.hlsl>
+﻿#include <Assets/Shaders/Compute/Voxels.hlsl>
 
-StructuredBuffer<float3> _Normals;
+StructuredBuffer<int> Indices;
+StructuredBuffer<Vertex> Vertices;
 
 void Normal_float(in float vertexID, out float3 Out)
 {
-    //Out = _Normals[vertexID];
+    #if defined(RENDER_INDEXED)
+    Out = Vertices[vertexID].normal;
+    #else
     Out = Vertices[Indices[vertexID]].normal;
+    #endif
 }

@@ -6,9 +6,6 @@ RWStructuredBuffer<uint> uIndirectArgs;
 RWStructuredBuffer<GeometryData> uFeedback;
 RWStructuredBuffer<ChunkFeedback> uChunkFeedback;
 
-RWStructuredBuffer<uint> uRenderPrimitivesIndirectArgs; // For Graphics.RenderPrimitivesIndirect (2 uints)
-RWStructuredBuffer<uint> uRenderPrimitivesIndexedArgs; // For Graphics.RenderPrimitivesIndexedIndirect (5 uints)
-
 groupshared uint sVertexCount;
 groupshared uint sIndexCount;
 
@@ -70,10 +67,10 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
     if (groupThreadID.x == 0 && groupThreadID.y == 0 && groupThreadID.z == 0)
     {
         uint vertexOffset = 0, indexOffset = 0;
-    
+        
         InterlockedAdd(uFeedback[0].vertexCount, sVertexCount, vertexOffset);
         InterlockedAdd(uFeedback[0].indexCount, sIndexCount, indexOffset);
-    
+        
         uint index = groupID.x + 10 * (groupID.y + 10 * groupID.z);
 
         uChunkFeedback[index].vertexOffset = vertexOffset;
@@ -81,19 +78,6 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
         uChunkFeedback[index].indexOffset = indexOffset;
         uChunkFeedback[index].indexCount = sIndexCount;
 
-        uIndirectArgs[0] = uFeedback[0].indexCount; // This is for DrawProceduralIndirect
-        
-        // For Graphics.RenderPrimitivesIndirect (non-indexed)
-        // It expects an array of 2 uints: { vertexCountPerInstance, instanceCount }
-        uRenderPrimitivesIndirectArgs[0] = uFeedback[0].indexCount; // Actual index count
-        uRenderPrimitivesIndirectArgs[1] = 1;                        // Instance count (assuming 1)
-
-        // For Graphics.RenderPrimitivesIndexedIndirect (indexed)
-        // It expects an array of 5 uints: { indexCountPerInstance, instanceCount, startIndex, baseVertexIndex, startInstance }
-        uRenderPrimitivesIndexedArgs[0] = uFeedback[0].indexCount; // Actual index count
-        uRenderPrimitivesIndexedArgs[1] = 1;                         // Instance count (assuming 1)
-        uRenderPrimitivesIndexedArgs[2] = 0;                         // startIndex (usually 0 if drawing from beginning of index buffer)
-        uRenderPrimitivesIndexedArgs[3] = 0;                         // baseVertexIndex (usually 0 if vertex buffer is contiguous)
-        uRenderPrimitivesIndexedArgs[4] = 0;                         // startInstance (usually 0)
+        uIndirectArgs[0] = uFeedback[0].indexCount;
     }
 }

@@ -2,7 +2,6 @@ using Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 
 public enum RenderMode
 {
@@ -11,24 +10,36 @@ public enum RenderMode
 	RenderPrimitivesIndexedIndirect = 2
 }
 
+public enum DispatchMode
+{
+	Dispatch = 0,
+	DispatchIndirect = 1,
+	AsyncCompute = 2
+}
+
 public class VoxelChunkGenerator : MonoBehaviour
 {
-	private static readonly int vertices       = Shader.PropertyToID("Vertices");
-	private static readonly int indices        = Shader.PropertyToID("Indices");
-	private static readonly int uVoxels        = Shader.PropertyToID("uVoxels");
-	private static readonly int uVertices      = Shader.PropertyToID("uVertices");
-	private static readonly int uIndices       = Shader.PropertyToID("uIndices");
-	private static readonly int uChunkFeedback = Shader.PropertyToID("uChunkFeedback");
-	private static readonly int uFeedback      = Shader.PropertyToID("uFeedback");
-	private static readonly int uIndirectArgs  = Shader.PropertyToID("uIndirectArgs");
-	private static readonly int uFrequency     = Shader.PropertyToID("uFrequency");
-	private static readonly int uAmplitude     = Shader.PropertyToID("uAmplitude");
-	private static readonly int uPosition      = Shader.PropertyToID("uPosition");
+	#region Shader Properties
+
+	private static readonly int vertices                      = Shader.PropertyToID("Vertices");
+	private static readonly int indices                       = Shader.PropertyToID("Indices");
+	private static readonly int uVoxels                       = Shader.PropertyToID("uVoxels");
+	private static readonly int uVertices                     = Shader.PropertyToID("uVertices");
+	private static readonly int uIndices                      = Shader.PropertyToID("uIndices");
+	private static readonly int uChunkFeedback                = Shader.PropertyToID("uChunkFeedback");
+	private static readonly int uFeedback                     = Shader.PropertyToID("uFeedback");
+	private static readonly int uIndirectArgs                 = Shader.PropertyToID("uIndirectArgs");
+	private static readonly int uFrequency                    = Shader.PropertyToID("uFrequency");
+	private static readonly int uAmplitude                    = Shader.PropertyToID("uAmplitude");
+	private static readonly int uPosition                     = Shader.PropertyToID("uPosition");
+	private static readonly int uRenderPrimitivesIndirectArgs = Shader.PropertyToID("uRenderPrimitivesIndirectArgs");
+	private static readonly int uRenderPrimitivesIndexedArgs  = Shader.PropertyToID("uRenderPrimitivesIndexedArgs");
+
+	#endregion
 
 	#region Constants
 
 	private const int CHUNK_SIZE      = 80;
-	private const int CHUNK_SIZE3     = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 	private const int WORK_GROUP_SIZE = 8;
 	private const int SUB_CHUNK_SIZE  = CHUNK_SIZE / WORK_GROUP_SIZE;
 	private const int VOXEL_COUNT     = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
@@ -37,7 +48,8 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	#region Noise Settings
 
-	[Header("Noise Settings")] public float   Frequency = 0.1f;
+	[Header("Noise Settings")] 
+	public							  float   Frequency = 0.1f;
 	public                            float   Amplitude = 1f;
 	public                            Vector3 Position;
 	public                            Vector3 MovementSpeed = new(2.5f, 2.5f, 2.5f);
@@ -46,15 +58,9 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	#region Compute Shaders
 
-	[Header("Compute Shaders")] 
-	[FormerlySerializedAs("generateVoxelsComputeShader")]
-	public ComputeShader GenerateVoxelsComputeShader;
-
-	[FormerlySerializedAs("voxelizerComputeShader")]
-	public ComputeShader VoxelizerComputeShader;
-
-	[FormerlySerializedAs("feedbackComputeShader")]
-	public ComputeShader FeedbackComputeShader;
+	[Header("Compute Shaders")] public ComputeShader GenerateVoxelsComputeShader;
+	public                             ComputeShader VoxelizerComputeShader;
+	public                             ComputeShader FeedbackComputeShader;
 
 	#endregion
 
@@ -64,22 +70,24 @@ public class VoxelChunkGenerator : MonoBehaviour
 	private ComputeBuffer voxelBuffer;
 	private ComputeBuffer chunkFeedbackBuffer;
 	private ComputeBuffer subChunkFeedbackBuffer;
-	private ComputeBuffer vertexBuffer;
-
-	private ComputeBuffer indexBuffer;
+	private ComputeBuffer verticesBuffer;
+	private GraphicsBuffer indicesBuffer;
+	private ComputeBuffer argsBuffer;
 
 	// DrawProceduralIndirect
 	private ComputeBuffer indirectBuffer;
 
 	// RenderPrimitivesIndirect
-	private GraphicsBuffer commandsBuffer;
-
+	private GraphicsBuffer                    commandsBuffer;
 	private GraphicsBuffer.IndirectDrawArgs[] indirectDrawArgs;
 
 	// RenderPrimitivesIndexedIndirect
 	private GraphicsBuffer                           indexedCommandBuffer;
-	private GraphicsBuffer                           indexedBuffer;
+	//private GraphicsBuffer                           indexedBuffer;
 	private GraphicsBuffer.IndirectDrawIndexedArgs[] indexedIndirectDrawArgs;
+
+	// Async Compute
+	private CommandBuffer asyncCommandBuffer;
 
 	#endregion
 
@@ -93,11 +101,14 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	#region Variables
 
-	[Header("Rendering Settings")] public         RenderMode   RenderingMode = RenderMode.DrawProceduralIndirect;
-	public                                        TMP_Dropdown RenderDropdown;
-	[FormerlySerializedAs("drawMaterial")] public Material     DrawMaterial;
-
-	private Camera cam;
+	[Header("Rendering Settings")] 
+	[SerializeField] private  TMP_Dropdown renderDropdown;
+	[SerializeField] private TMP_Dropdown dispatchDropdown;
+	[SerializeField]     private Material     drawMaterial;
+	private                                                             RenderMode   renderingMode   = RenderMode.RenderPrimitivesIndirect;
+	private                                                             DispatchMode dispatchingMode = DispatchMode.DispatchIndirect;
+	
+	private Camera       cam;
 
 	// for more chunks Bounds(Vector3.one * ChunkSize * ChunksAmount / 2f, Vector3.one * ChunkSize * ChunksAmount);
 	private readonly Bounds          bounds = new(Vector3.one * CHUNK_SIZE / 2f, Vector3.one * CHUNK_SIZE);
@@ -106,10 +117,48 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	#endregion
 
+	private void OnEnable()
+	{
+		renderDropdown.onValueChanged.AddListener(SetRenderingMode);
+		dispatchDropdown.onValueChanged.AddListener(SetDispatchMode);
+	}
+
+	private void OnDisable()
+	{
+		renderDropdown.onValueChanged.RemoveAllListeners();
+		dispatchDropdown.onValueChanged.RemoveAllListeners();
+	}
+
+	private void Awake()
+	{
+		renderDropdown.options.Clear();
+		for (var i = 0; i <= (int)RenderMode.RenderPrimitivesIndexedIndirect; i++)
+		{
+			var temp = (RenderMode)i;
+			var item = new TMP_Dropdown.OptionData
+			           {
+				           text = temp.ToString()
+			           };
+			renderDropdown.options.Add(item);
+		}
+		renderDropdown.value = (int)renderingMode;
+		
+		dispatchDropdown.options.Clear();
+		for (var i = 0; i <= (int)DispatchMode.AsyncCompute; i++)
+		{
+			var temp = (DispatchMode)i;
+			var item = new TMP_Dropdown.OptionData
+			           {
+				           text = temp.ToString()
+			           };
+			dispatchDropdown.options.Add(item);
+		}
+		dispatchDropdown.value = (int)dispatchingMode;
+	}
+
 	private void Start()
 	{
 		cam = Camera.main;
-
 		GetKernelsIDs();
 
 		InitializeBuffers();
@@ -120,11 +169,10 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 		BindBuffer();
 
-		// copy material
-		DrawMaterial = new Material(DrawMaterial);
-		DrawMaterial.SetBuffer(vertices, vertexBuffer);
-		DrawMaterial.SetBuffer(indices, indexBuffer);
+		drawMaterial.SetBuffer(vertices, verticesBuffer);
+		drawMaterial.SetBuffer(indices, indicesBuffer);
 
+		SetupAsynCompute();
 		SetupRenderParams();
 	}
 
@@ -132,10 +180,8 @@ public class VoxelChunkGenerator : MonoBehaviour
 	{
 		MoveNoiseOrigin();
 
-		DispatchShaders();
-
-		RenderingMode = (RenderMode)RenderDropdown.value;
-		ChangeRenderMode(RenderingMode);
+		ChangeDispatchingMode();
+		ChangeRenderMode();
 
 		Reset();
 	}
@@ -150,7 +196,7 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	private unsafe void InitializeBuffers()
 	{
-		voxelBuffer = new ComputeBuffer(CHUNK_SIZE3, sizeof(int));
+		voxelBuffer = new ComputeBuffer(VOXEL_COUNT, sizeof(int));
 
 		chunkFeedbackBuffer = new ComputeBuffer(1, sizeof(ChunkFeedback));
 		chunkFeedbackBuffer.SetData(new[] { new ChunkFeedback() });
@@ -160,14 +206,17 @@ public class VoxelChunkGenerator : MonoBehaviour
 		subChunkFeedbackBuffer.SetData(new SubChunkFeedback[SUB_CHUNK_SIZE * SUB_CHUNK_SIZE * SUB_CHUNK_SIZE]);
 
 		// max voxels * 4 vertices per face * 6 faces per voxel, assuming voxels are only Cube-like
-		vertexBuffer = new ComputeBuffer(VOXEL_COUNT * 4 * 6, sizeof(Vertex));
+		verticesBuffer = new ComputeBuffer(VOXEL_COUNT * 4 * 6, sizeof(Vertex));
 		// max voxels * 6 faces per voxel * 6 indices per face, assuming voxels are only Cube-like
-		indexBuffer = new ComputeBuffer(VOXEL_COUNT * 6 * 6, sizeof(int));
+		indicesBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Index | GraphicsBuffer.Target.Structured, VOXEL_COUNT * 6 * 6, sizeof(int));
+
+		argsBuffer = new ComputeBuffer(1, sizeof(uint) * 3, ComputeBufferType.IndirectArguments, ComputeBufferMode.Immutable);
+		argsBuffer.SetData(new uint[]{SUB_CHUNK_SIZE, SUB_CHUNK_SIZE, SUB_CHUNK_SIZE});
 	}
 
 	private void SetupDrawProceduralIndirect()
 	{
-		indirectBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
+		indirectBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments, ComputeBufferMode.Immutable);
 		indirectBuffer.SetData(new uint[] { 0, 1, 0, 0, 0 });
 	}
 
@@ -175,27 +224,27 @@ public class VoxelChunkGenerator : MonoBehaviour
 	{
 		commandsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
 		                                    GraphicsBuffer.IndirectDrawArgs.size);
-
-		indirectDrawArgs                           = new GraphicsBuffer.IndirectDrawArgs[1];
-		indirectDrawArgs[0].vertexCountPerInstance = (uint)vertexBuffer.count;
-		indirectDrawArgs[0].instanceCount          = 1;
-
-		commandsBuffer.SetData(indirectDrawArgs);
 	}
 
 	private void SetupRenderPrimitivesIndexedIndirect()
 	{
 		indexedCommandBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
 		                                          GraphicsBuffer.IndirectDrawIndexedArgs.size);
-		indexedBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Index, indexBuffer.count, sizeof(int));
+		//indexedBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Index, indicesBuffer.count, sizeof(int));
+	}
 
-		indexedIndirectDrawArgs                          = new GraphicsBuffer.IndirectDrawIndexedArgs[1];
-		indexedIndirectDrawArgs[0].indexCountPerInstance = (uint)indexBuffer.count;
-		indexedIndirectDrawArgs[0].instanceCount         = 1;
-		indexedIndirectDrawArgs[0].baseVertexIndex       = 0;
-		indexedIndirectDrawArgs[0].startIndex            = 0;
+	private void SetupAsynCompute()
+	{
+		asyncCommandBuffer = new CommandBuffer();
+		asyncCommandBuffer.SetExecutionFlags(CommandBufferExecutionFlags.AsyncCompute);
+		asyncCommandBuffer.DispatchCompute(GenerateVoxelsComputeShader, generateVoxelsKernelId, argsBuffer, 0);
+		asyncCommandBuffer.DispatchCompute(FeedbackComputeShader, feedbackKernelId, argsBuffer, 0);
+		asyncCommandBuffer.DispatchCompute(VoxelizerComputeShader, voxelizerKernelId, argsBuffer, 0);
+	}
 
-		indexedCommandBuffer.SetData(indexedIndirectDrawArgs);
+	private void AsyncComputeTest()
+	{
+		Graphics.ExecuteCommandBufferAsync(asyncCommandBuffer, ComputeQueueType.Urgent);
 	}
 
 	private void BindBuffer()
@@ -203,8 +252,8 @@ public class VoxelChunkGenerator : MonoBehaviour
 		// ComputeShader kernelID + Name of shader buffer to bind, + buffer
 		GenerateVoxelsComputeShader.SetBuffer(generateVoxelsKernelId, uVoxels, voxelBuffer);
 
-		VoxelizerComputeShader.SetBuffer(voxelizerKernelId, uVertices, vertexBuffer);
-		VoxelizerComputeShader.SetBuffer(voxelizerKernelId, uIndices, indexBuffer);
+		VoxelizerComputeShader.SetBuffer(voxelizerKernelId, uVertices, verticesBuffer);
+		VoxelizerComputeShader.SetBuffer(voxelizerKernelId, uIndices, indicesBuffer);
 		VoxelizerComputeShader.SetBuffer(voxelizerKernelId, uVoxels, voxelBuffer);
 		VoxelizerComputeShader.SetBuffer(voxelizerKernelId, uChunkFeedback, subChunkFeedbackBuffer);
 
@@ -212,11 +261,14 @@ public class VoxelChunkGenerator : MonoBehaviour
 		FeedbackComputeShader.SetBuffer(feedbackKernelId, uFeedback, chunkFeedbackBuffer);
 		FeedbackComputeShader.SetBuffer(feedbackKernelId, uChunkFeedback, subChunkFeedbackBuffer);
 		FeedbackComputeShader.SetBuffer(voxelizerKernelId, uIndirectArgs, indirectBuffer);
+
+		FeedbackComputeShader.SetBuffer(feedbackKernelId, uRenderPrimitivesIndirectArgs, commandsBuffer);
+		FeedbackComputeShader.SetBuffer(feedbackKernelId, uRenderPrimitivesIndexedArgs, indexedCommandBuffer);
 	}
 
 	private void SetupRenderParams()
 	{
-		renderParams = new RenderParams(DrawMaterial)
+		renderParams = new RenderParams(drawMaterial)
 		               {
 			               layer                 = 0,
 			               renderingLayerMask    = RenderingLayerMask.defaultRenderingLayerMask,
@@ -228,8 +280,11 @@ public class VoxelChunkGenerator : MonoBehaviour
 			               shadowCastingMode     = ShadowCastingMode.On,
 			               receiveShadows        = true,
 			               lightProbeUsage       = LightProbeUsage.Off,
-			               lightProbeProxyVolume = null
+			               lightProbeProxyVolume = null,
+			               matProps              = new MaterialPropertyBlock()
 		               };
+		renderParams.matProps.SetBuffer(vertices, verticesBuffer);
+		renderParams.matProps.SetBuffer(indices, indicesBuffer);
 	}
 
 	private void MoveNoiseOrigin()
@@ -243,17 +298,21 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	private void DispatchShaders()
 	{
-		// generate voxels
 		GenerateVoxelsComputeShader.Dispatch(generateVoxelsKernelId, SUB_CHUNK_SIZE, SUB_CHUNK_SIZE, SUB_CHUNK_SIZE);
-		// gather index and vertex count
 		FeedbackComputeShader.Dispatch(feedbackKernelId, SUB_CHUNK_SIZE, SUB_CHUNK_SIZE, SUB_CHUNK_SIZE);
-		// generate mesh
 		VoxelizerComputeShader.Dispatch(voxelizerKernelId, SUB_CHUNK_SIZE, SUB_CHUNK_SIZE, SUB_CHUNK_SIZE);
+	}
+
+	private void DispatchIndirectShaders()
+	{
+		GenerateVoxelsComputeShader.DispatchIndirect(generateVoxelsKernelId, argsBuffer);
+		FeedbackComputeShader.DispatchIndirect(feedbackKernelId, argsBuffer);
+		VoxelizerComputeShader.DispatchIndirect(voxelizerKernelId, argsBuffer);
 	}
 
 	private void DrawProceduralIndirect()
 	{
-		Graphics.DrawProceduralIndirect(DrawMaterial, bounds, MeshTopology.Triangles, indirectBuffer, camera: cam);
+		Graphics.DrawProceduralIndirect(drawMaterial, bounds, MeshTopology.Triangles, indirectBuffer, camera: cam);
 	}
 
 	private void RenderPrimitivesIndirect()
@@ -263,27 +322,68 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	private void RenderPrimitivesIndexedIndirect()
 	{
-		Graphics.RenderPrimitivesIndexedIndirect(in renderParams, MeshTopology.Triangles, indexedBuffer,
+		Graphics.RenderPrimitivesIndexedIndirect(in renderParams, MeshTopology.Triangles, indicesBuffer,
 		                                         indexedCommandBuffer);
 	}
 
-	private void ChangeRenderMode(RenderMode renderMode)
+	private void ChangeRenderMode()
 	{
-		switch (renderMode)
+		switch (renderingMode)
 		{
 			case RenderMode.DrawProceduralIndirect:
 				DrawProceduralIndirect();
+				if (drawMaterial.IsKeywordEnabled("RENDER_INDEXED"))
+				{
+					drawMaterial.DisableKeyword("RENDER_INDEXED");
+				}
 				break;
 			case RenderMode.RenderPrimitivesIndirect:
 				RenderPrimitivesIndirect();
+				if (drawMaterial.IsKeywordEnabled("RENDER_INDEXED"))
+				{
+					drawMaterial.DisableKeyword("RENDER_INDEXED");
+				}
 				break;
 			case RenderMode.RenderPrimitivesIndexedIndirect:
+				if (!drawMaterial.IsKeywordEnabled("RENDER_INDEXED"))
+				{
+					drawMaterial.EnableKeyword("RENDER_INDEXED");
+				}
 				RenderPrimitivesIndexedIndirect();
 				break;
 			default:
 				DrawProceduralIndirect();
 				break;
 		}
+	}
+
+	private void ChangeDispatchingMode()
+	{
+		switch (dispatchingMode)
+		{
+			case DispatchMode.Dispatch :
+				DispatchShaders();
+				break;
+			case DispatchMode.DispatchIndirect :
+				DispatchIndirectShaders();
+				break;
+			case DispatchMode.AsyncCompute :
+				AsyncComputeTest();
+				break;
+			default:
+				DispatchShaders();
+				break;
+		}
+	}
+	
+	private void SetRenderingMode(int mode)
+	{
+		renderingMode = (RenderMode)mode;
+	}
+
+	private void SetDispatchMode(int mode)
+	{
+		dispatchingMode = (DispatchMode)mode;
 	}
 
 	private void Reset()
@@ -297,12 +397,14 @@ public class VoxelChunkGenerator : MonoBehaviour
 		voxelBuffer.Release();
 		chunkFeedbackBuffer.Release();
 		subChunkFeedbackBuffer.Release();
-		vertexBuffer.Release();
-		indexBuffer.Release();
+		verticesBuffer.Release();
+		indicesBuffer.Release();
 		indirectBuffer.Release();
+		argsBuffer.Release();
 
 		commandsBuffer.Release();
-		indexedBuffer.Release();
+		//indexedBuffer.Release();
 		indexedCommandBuffer.Release();
+		asyncCommandBuffer.Release();
 	}
 }

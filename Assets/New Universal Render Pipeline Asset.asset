@@ -53,7 +53,7 @@ MonoBehaviour:
   m_AdditionalLightsShadowResolutionTierHigh: 1024
   m_ReflectionProbeBlending: 0
   m_ReflectionProbeBoxProjection: 0
-  m_ReflectionProbeAtlas: 1
+  m_ReflectionProbeAtlas: 0
   m_ShadowDistance: 250
   m_ShadowCascadeCount: 2
   m_Cascade2Split: 0.3
@@ -92,7 +92,7 @@ MonoBehaviour:
   m_MaxPixelLights: 0
   m_ShadowAtlasResolution: 256
   m_VolumeFrameworkUpdateMode: 0
-  m_VolumeProfile: {fileID: 0}
+  m_VolumeProfile: {fileID: 11400000, guid: 175e745d7b8c84b4fbc2411b67cd38cd, type: 2}
   apvScenesData:
     obsoleteSceneBounds:
       m_Keys: []
