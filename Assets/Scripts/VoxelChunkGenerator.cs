@@ -71,8 +71,8 @@ public class VoxelChunkGenerator : MonoBehaviour
 	private ComputeBuffer chunkFeedbackBuffer;
 	private ComputeBuffer subChunkFeedbackBuffer;
 	private ComputeBuffer verticesBuffer;
-	private GraphicsBuffer indicesBuffer;
 	private ComputeBuffer argsBuffer;
+	private GraphicsBuffer indicesBuffer;
 
 	// DrawProceduralIndirect
 	private ComputeBuffer indirectBuffer;
@@ -83,7 +83,6 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	// RenderPrimitivesIndexedIndirect
 	private GraphicsBuffer                           indexedCommandBuffer;
-	//private GraphicsBuffer                           indexedBuffer;
 	private GraphicsBuffer.IndirectDrawIndexedArgs[] indexedIndirectDrawArgs;
 
 	// Async Compute
@@ -230,7 +229,6 @@ public class VoxelChunkGenerator : MonoBehaviour
 	{
 		indexedCommandBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
 		                                          GraphicsBuffer.IndirectDrawIndexedArgs.size);
-		//indexedBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Index, indicesBuffer.count, sizeof(int));
 	}
 
 	private void SetupAsynCompute()
@@ -403,7 +401,6 @@ public class VoxelChunkGenerator : MonoBehaviour
 		argsBuffer.Release();
 
 		commandsBuffer.Release();
-		//indexedBuffer.Release();
 		indexedCommandBuffer.Release();
 		asyncCommandBuffer.Release();
 	}
