@@ -242,7 +242,7 @@ public class VoxelChunkGenerator : MonoBehaviour
 
 	private void AsyncComputeTest()
 	{
-		Graphics.ExecuteCommandBufferAsync(asyncCommandBuffer, ComputeQueueType.Urgent);
+		Graphics.ExecuteCommandBufferAsync(asyncCommandBuffer, ComputeQueueType.Background);
 	}
 
 	private void BindBuffer()
