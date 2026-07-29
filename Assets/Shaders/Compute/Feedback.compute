@@ -12,7 +12,7 @@ RWStructuredBuffer<uint> uRenderPrimitivesIndexedArgs; // For Graphics.RenderPri
 groupshared uint sVertexCount;
 groupshared uint sIndexCount;
 
-groupshared int3 Normals[] =
+static const int3 Normals[] =
 {
     int3(0, 0, -1),
     int3(0, 0, 1),

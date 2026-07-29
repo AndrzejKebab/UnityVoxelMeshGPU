@@ -89,6 +89,9 @@ MonoBehaviour:
   highQualityFiltering:
     m_OverrideState: 1
     m_Value: 0
+  filter:
+    m_OverrideState: 1
+    m_Value: 0
   downscale:
     m_OverrideState: 1
     m_Value: 0
@@ -506,6 +509,86 @@ MonoBehaviour:
   - {fileID: -7991840165426896308}
   - {fileID: -4118968512799506283}
   - {fileID: -2650829685715568462}
+  - {fileID: 1628916778712731519}
+--- !u!114 &1628916778712731519
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2274cd80d4e22254d98d0282578183e0, type: 3}
+  m_Name: ScreenSpaceReflectionVolumeSettings
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.ScreenSpaceReflectionVolumeSettings
+  active: 1
+  mode:
+    m_OverrideState: 1
+    m_Value: 1
+  reflectionStrength:
+    m_OverrideState: 1
+    m_Value: 1
+  clampReflectedColor:
+    m_OverrideState: 1
+    m_Value: 0
+  maxColorValue:
+    m_OverrideState: 1
+    m_Value: 1
+  resolution:
+    m_OverrideState: 1
+    m_Value: 2
+  upscalingMethod:
+    m_OverrideState: 1
+    m_Value: 1
+  marchingMethod:
+    m_OverrideState: 1
+    m_Value: 1
+  hitRefinementSteps:
+    m_OverrideState: 1
+    m_Value: 5
+  finalThicknessMultiplier:
+    m_OverrideState: 1
+    m_Value: 0.16
+  roughnessFilter:
+    m_OverrideState: 1
+    m_Value: 2
+  roughnessScale:
+    m_OverrideState: 1
+    m_Value: 0
+  minimumSmoothness:
+    m_OverrideState: 1
+    m_Value: 0.05
+  smoothnessFadeStart:
+    m_OverrideState: 1
+    m_Value: 0.1
+  normalFade:
+    m_OverrideState: 1
+    m_Value: 0
+  screenEdgeFadeDistance:
+    m_OverrideState: 1
+    m_Value: 0.2
+  reflectSky:
+    m_OverrideState: 1
+    m_Value: 0
+  maxRayLength:
+    m_OverrideState: 1
+    m_Value: 30
+  rayLengthFade:
+    m_OverrideState: 1
+    m_Value: 1
+  maxRaySteps:
+    m_OverrideState: 1
+    m_Value: 64
+  objectThickness:
+    m_OverrideState: 1
+    m_Value: 0.01
+  temporalFiltering:
+    m_OverrideState: 1
+    m_Value: 0
+  baseBlendFactor:
+    m_OverrideState: 1
+    m_Value: 0.95
 --- !u!114 &2028782603657608983
 MonoBehaviour:
   m_ObjectHideFlags: 3

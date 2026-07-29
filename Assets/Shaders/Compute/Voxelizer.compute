@@ -12,7 +12,7 @@ groupshared uint sIndexOffset;
 groupshared uint sIndexCount;
 groupshared uint sChunkIndex;
 
-groupshared int VoxelTriangles[] =
+static const int VoxelTriangles[] =
 {
     0, 3, 1, 2,
     5, 6, 4, 7,
@@ -22,7 +22,7 @@ groupshared int VoxelTriangles[] =
     1, 2, 5, 6
 };
 
-groupshared int2 UVs[] =
+static const int2 UVs[] =
 {
     int2(0, 0),
     int2(0, 1),
@@ -30,7 +30,7 @@ groupshared int2 UVs[] =
     int2(1, 1)
 };
 
-groupshared int3 Normals[] =
+static const int3 Normals[] =
 {
     int3(0, 0, -1),
     int3(0, 0, 1),
@@ -40,7 +40,7 @@ groupshared int3 Normals[] =
     int3(1, 0, 0)
 };
 
-groupshared int3 Vertices[] =
+static const int3 Vertices[] =
 {
     int3(0, 0, 0),
     int3(1, 0, 0),
