@@ -1,11 +1,10 @@
 ﻿#ifndef VOXELS_HLSL
 #define VOXELS_HLSL
 
-cbuffer VoxelWorldParams
-{
-    uint3 uChunkGrid; // e.g. (33, 33, 33) chunks
-    uint3 uChunkSize; // e.g. (32, 32, 32) voxels per chunk
-};
+uint3 uChunkGrid;
+uint3 uChunkSize;
+uint uMaxVertices;
+uint uMaxIndices;
 
 struct Vertex {
     float3 position : POSITION;
@@ -31,7 +30,7 @@ uint to1D(uint3 pos) {
 }
 
 int to1D(int3 pos) {
-    uint3 wSize = uChunkGrid * uChunkSize;
+    int3 wSize = int3(uChunkGrid * uChunkSize);
     return pos.x + wSize.x * (pos.y + wSize.y * pos.z);
 }
 
@@ -43,5 +42,4 @@ uint3 to3D(uint idx) {
     
     return uint3(x, y, z);
 }
-
 #endif

@@ -2,27 +2,46 @@
 #include "Voxels.hlsl"
 #include "Library/PackageCache/jp.keijiro.noiseshader@828ea0350ffd/Shader/SimplexNoise3D.hlsl"
 
-RWStructuredBuffer<int> uVoxels;
+RWStructuredBuffer<uint> uVoxels;
+
+uint uVoxelBufferSize;
+uint uMaxDispatchX;
 
 float3 uPosition = float3(0, 0, 0);
 float uFrequency = 0.1f;
 float uAmplitude = 0.5f;
 
-[numthreads(8, 8, 8)]
-void CSMain (uint3 dispatchID : SV_DispatchThreadID)
+[numthreads(64, 1, 1)]
+void CSMain (uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID)
 {
-    const uint globalVoxelIndex = to1D(dispatchID);
+    // Reconstruct a flat 1D array index from the 2D dispatch grid
+    uint groupIdx = groupID.x + groupID.y * uMaxDispatchX;
+    uint arrayIdx = groupIdx * 64 + groupThreadID.x;
     
-    int3 coord = int3(dispatchID);
-    float3 position = float3(coord) + uPosition;
+    if (arrayIdx >= uVoxelBufferSize) return;
 
-    float noise = SimplexNoise(position * uFrequency) * uAmplitude;
+    uint3 wSize = uChunkGrid * uChunkSize;
+    uint totalSize = wSize.x * wSize.y * wSize.z;
 
-    if (noise > 0)
+    uint packed = 0;
+    
+    // 1 Thread evaluates exactly 32 voxels and packs them directly (No Atomics!)
+    for (int i = 0; i < 32; i++) 
     {
-        uVoxels[globalVoxelIndex] = 1;
-    } else
-    {
-        uVoxels[globalVoxelIndex] = 0;
+        uint globalIdx = arrayIdx * 32 + i;
+        if (globalIdx >= totalSize) break;
+
+        // Convert 1D back to 3D space
+        uint x = globalIdx % wSize.x;
+        uint y = (globalIdx / wSize.x) % wSize.y;
+        uint z = globalIdx / (wSize.x * wSize.y);
+        
+        float3 pos = float3(x, y, z) + uPosition;
+        float noise = SimplexNoise(pos * uFrequency) * uAmplitude;
+        
+        if (noise > 0) packed |= (1u << i);
     }
+
+    // Directly overwrite the memory (Eliminates the need for a Clear kernel entirely)
+    uVoxels[arrayIdx] = packed;
 }

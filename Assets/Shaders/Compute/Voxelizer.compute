@@ -3,7 +3,7 @@
 
 RWStructuredBuffer<Vertex> uVertices;
 RWStructuredBuffer<uint> uIndices;
-StructuredBuffer<int> uVoxels;
+StructuredBuffer<uint> uVoxels; // Readonly uint Buffer
 StructuredBuffer<ChunkFeedback> uChunkFeedback;
 
 groupshared uint sVertexOffset;
@@ -12,63 +12,25 @@ groupshared uint sIndexOffset;
 groupshared uint sIndexCount;
 groupshared uint sChunkIndex;
 
-static const int VoxelTriangles[] =
-{
-    0, 3, 1, 2,
-    5, 6, 4, 7,
-    3, 7, 2, 6,
-    1, 5, 0, 4,
-    4, 7, 0, 3,
-    1, 2, 5, 6
-};
+static const int VoxelTriangles[] = { 0, 3, 1, 2, 5, 6, 4, 7, 3, 7, 2, 6, 1, 5, 0, 4, 4, 7, 0, 3, 1, 2, 5, 6 };
+static const int2 UVs[] = { int2(0, 0), int2(0, 1), int2(1, 0), int2(1, 1) };
+static const int3 Normals[] = { int3(0, 0, -1), int3(0, 0, 1), int3(0, 1, 0), int3(0, -1, 0), int3(-1, 0, 0), int3(1, 0, 0) };
+static const int3 Vertices[] = { int3(0, 0, 0), int3(1, 0, 0), int3(1, 1, 0), int3(0, 1, 0), int3(0, 0, 1), int3(1, 0, 1), int3(1, 1, 1), int3(0, 1, 1) };
 
-static const int2 UVs[] =
-{
-    int2(0, 0),
-    int2(0, 1),
-    int2(1, 0),
-    int2(1, 1)
-};
-
-static const int3 Normals[] =
-{
-    int3(0, 0, -1),
-    int3(0, 0, 1),
-    int3(0, 1, 0),
-    int3(0, -1, 0),
-    int3(-1, 0, 0),
-    int3(1, 0, 0)
-};
-
-static const int3 Vertices[] =
-{
-    int3(0, 0, 0),
-    int3(1, 0, 0),
-    int3(1, 1, 0),
-    int3(0, 1, 0),
-    int3(0, 0, 1),
-    int3(1, 0, 1),
-    int3(1, 1, 1),
-    int3(0, 1, 1)
-};
-
-void getFaceVerticies(int faceIndex, int3 pos, out int3 verticies[4])
-{
-    for (int i = 0; i < 4; i++) {
-        verticies[i] = Vertices[VoxelTriangles[faceIndex * 4 + i]] + pos;
-    }
+void getFaceVerticies(int faceIndex, int3 pos, out int3 verticies[4]) {
+    for (int i = 0; i < 4; i++) { verticies[i] = Vertices[VoxelTriangles[faceIndex * 4 + i]] + pos; }
 } 
 
+// Checks the specific bit inside the uint array
 bool hasVoxel(int3 coord) {
-    uint3 wSize = uChunkGrid * uChunkSize;
-    if (coord.x < 0 || coord.x >= (int)wSize.x || 
-        coord.y < 0 || coord.y >= (int)wSize.y ||
-        coord.z < 0 || coord.z >= (int)wSize.z) {
+    int3 wSize = int3(uChunkGrid * uChunkSize);
+    if (coord.x < 0 || coord.x >= wSize.x || coord.y < 0 || coord.y >= wSize.y || coord.z < 0 || coord.z >= wSize.z) {
         return false;
-        }
-
-    int idx = to1D(coord);
-    return uVoxels[idx] > 0;
+    }
+    uint idx = to1D(coord);
+    uint arrayIdx = idx / 32;
+    uint bitIdx = idx % 32;
+    return ((uVoxels[arrayIdx] >> bitIdx) & 1u) == 1u;
 }
 
 void setVertex(out Vertex vertex, in float3 position, in float2 texcoord, in float3 normal) {
@@ -81,9 +43,7 @@ void setVertex(out Vertex vertex, in float3 position, in float2 texcoord, in flo
 void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID)
 {
     if (groupThreadID.x == 0 && groupThreadID.y == 0 && groupThreadID.z == 0) {
-        // Calculate the total number of thread groups based on total voxels
         uint3 groupGrid = (uChunkGrid * uChunkSize) / 8;
-        
         sChunkIndex = groupID.x + groupGrid.x * (groupID.y + groupGrid.y * groupID.z);
         sVertexOffset = uChunkFeedback[sChunkIndex].vertexOffset;
         sIndexOffset = uChunkFeedback[sChunkIndex].indexOffset;
@@ -94,8 +54,11 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
     AllMemoryBarrierWithGroupSync();
     
     uint globalVoxelIndex = to1D(dispatchID);
+    uint arrayIdx = globalVoxelIndex / 32;
+    uint bitIdx = globalVoxelIndex % 32;
 
-    if (uVoxels[globalVoxelIndex] > 0)
+    // Evaluate the packed bit
+    if (((uVoxels[arrayIdx] >> bitIdx) & 1u) == 1u)
     {
         int3 coord = int3(dispatchID);
         int3 position = int3(coord);
@@ -109,21 +72,23 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
                 InterlockedAdd(sVertexOffset, 4, vertexOffset);
                 InterlockedAdd(sIndexOffset, 6, indexOffset);
             
-                int3 verts[4];
-                getFaceVerticies(i, position, verts);
-            
-                setVertex(uVertices[vertexOffset + 0], verts[0], UVs[0], Normals[i]);
-                setVertex(uVertices[vertexOffset + 1], verts[1], UVs[1], Normals[i]);
-                setVertex(uVertices[vertexOffset + 2], verts[2], UVs[2], Normals[i]);
-                setVertex(uVertices[vertexOffset + 3], verts[3], UVs[3], Normals[i]);
-            
-                uIndices[indexOffset + 0] = vertexOffset;
-                uIndices[indexOffset + 1] = vertexOffset + 1;
-                uIndices[indexOffset + 2] = vertexOffset + 2;
+                if (vertexOffset + 3 < uMaxVertices && indexOffset + 5 < uMaxIndices) {
+                    int3 verts[4];
+                    getFaceVerticies(i, position, verts);
+                
+                    setVertex(uVertices[vertexOffset + 0], verts[0], UVs[0], Normals[i]);
+                    setVertex(uVertices[vertexOffset + 1], verts[1], UVs[1], Normals[i]);
+                    setVertex(uVertices[vertexOffset + 2], verts[2], UVs[2], Normals[i]);
+                    setVertex(uVertices[vertexOffset + 3], verts[3], UVs[3], Normals[i]);
+                
+                    uIndices[indexOffset + 0] = vertexOffset;
+                    uIndices[indexOffset + 1] = vertexOffset + 1;
+                    uIndices[indexOffset + 2] = vertexOffset + 2;
 
-                uIndices[indexOffset + 3] = vertexOffset + 2;
-                uIndices[indexOffset + 4] = vertexOffset + 1;
-                uIndices[indexOffset + 5] = vertexOffset + 3;
+                    uIndices[indexOffset + 3] = vertexOffset + 2;
+                    uIndices[indexOffset + 4] = vertexOffset + 1;
+                    uIndices[indexOffset + 5] = vertexOffset + 3;
+                }
             }           
         }        
     }

@@ -1,37 +1,28 @@
 ﻿#pragma kernel CSMain
 #include "Voxels.hlsl"
 
-RWStructuredBuffer<int> uVoxels;
+StructuredBuffer<uint> uVoxels; // Readonly packed uint buffer
 RWStructuredBuffer<uint> uIndirectArgs;
 RWStructuredBuffer<GeometryData> uFeedback;
 RWStructuredBuffer<ChunkFeedback> uChunkFeedback;
 
-RWStructuredBuffer<uint> uRenderPrimitivesIndirectArgs; // For Graphics.RenderPrimitivesIndirect (2 uints)
-RWStructuredBuffer<uint> uRenderPrimitivesIndexedArgs; // For Graphics.RenderPrimitivesIndexedIndirect (5 uints)
+RWStructuredBuffer<uint> uRenderPrimitivesIndirectArgs;
+RWStructuredBuffer<uint> uRenderPrimitivesIndexedArgs;
 
 groupshared uint sVertexCount;
 groupshared uint sIndexCount;
 
-static const int3 Normals[] =
-{
-    int3(0, 0, -1),
-    int3(0, 0, 1),
-    int3(0, 1, 0),
-    int3(0, -1, 0),
-    int3(-1, 0, 0),
-    int3(1, 0, 0)
-};
+static const int3 Normals[] = { int3(0, 0, -1), int3(0, 0, 1), int3(0, 1, 0), int3(0, -1, 0), int3(-1, 0, 0), int3(1, 0, 0) };
 
 bool hasVoxel(int3 coord) {
-    uint3 wSize = uChunkGrid * uChunkSize;
-    if (coord.x < 0 || coord.x >= (int)wSize.x || 
-        coord.y < 0 || coord.y >= (int)wSize.y ||
-        coord.z < 0 || coord.z >= (int)wSize.z) {
+    int3 wSize = int3(uChunkGrid * uChunkSize);
+    if (coord.x < 0 || coord.x >= wSize.x || coord.y < 0 || coord.y >= wSize.y || coord.z < 0 || coord.z >= wSize.z) {
         return false;
-        }
-
-    int idx = to1D(coord);
-    return uVoxels[idx] > 0;
+    }
+    uint idx = to1D(coord);
+    uint arrayIdx = idx / 32;
+    uint bitIdx = idx % 32;
+    return ((uVoxels[arrayIdx] >> bitIdx) & 1u) == 1u;
 }
 
 [numthreads(8, 8, 8)]
@@ -45,8 +36,10 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
     AllMemoryBarrierWithGroupSync();
     
     uint globalVoxelIndex = to1D(dispatchID);
+    uint arrayIdx = globalVoxelIndex / 32;
+    uint bitIdx = globalVoxelIndex % 32;
 
-    if (uVoxels[globalVoxelIndex] > 0) {
+    if (((uVoxels[arrayIdx] >> bitIdx) & 1u) == 1u) {
         int3 coord = int3(dispatchID);
 
         uint vertexCount = 0;
@@ -54,8 +47,7 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
 
         for (int i = 0; i < 6; i++)
         {
-            int3 neighborCoord = coord + Normals[i];
-            if (!hasVoxel(neighborCoord)) 
+            if (!hasVoxel(coord + Normals[i])) 
             {
                 vertexCount += 4;
                 indexCount += 6;
@@ -83,19 +75,14 @@ void CSMain (uint3 dispatchID : SV_DispatchThreadID, uint3 groupID : SV_GroupID,
         uChunkFeedback[index].indexOffset = indexOffset;
         uChunkFeedback[index].indexCount = sIndexCount;
 
-        uIndirectArgs[0] = uFeedback[0].indexCount; // This is for DrawProceduralIndirect
-        
-        // For Graphics.RenderPrimitivesIndirect (non-indexed)
-        // It expects an array of 2 uints: { vertexCountPerInstance, instanceCount }
-        uRenderPrimitivesIndirectArgs[0] = uFeedback[0].indexCount; // Actual index count
-        uRenderPrimitivesIndirectArgs[1] = 1;                        // Instance count (assuming 1)
+        uIndirectArgs[0] = uFeedback[0].indexCount;
+        uRenderPrimitivesIndirectArgs[0] = uFeedback[0].indexCount;
+        uRenderPrimitivesIndirectArgs[1] = 1;
 
-        // For Graphics.RenderPrimitivesIndexedIndirect (indexed)
-        // It expects an array of 5 uints: { indexCountPerInstance, instanceCount, startIndex, baseVertexIndex, startInstance }
-        uRenderPrimitivesIndexedArgs[0] = uFeedback[0].indexCount; // Actual index count
-        uRenderPrimitivesIndexedArgs[1] = 1;                         // Instance count (assuming 1)
-        uRenderPrimitivesIndexedArgs[2] = 0;                         // startIndex (usually 0 if drawing from beginning of index buffer)
-        uRenderPrimitivesIndexedArgs[3] = 0;                         // baseVertexIndex (usually 0 if vertex buffer is contiguous)
-        uRenderPrimitivesIndexedArgs[4] = 0;                         // startInstance (usually 0)
+        uRenderPrimitivesIndexedArgs[0] = uFeedback[0].indexCount;
+        uRenderPrimitivesIndexedArgs[1] = 1;
+        uRenderPrimitivesIndexedArgs[2] = 0;
+        uRenderPrimitivesIndexedArgs[3] = 0;
+        uRenderPrimitivesIndexedArgs[4] = 0;
     }
 }
